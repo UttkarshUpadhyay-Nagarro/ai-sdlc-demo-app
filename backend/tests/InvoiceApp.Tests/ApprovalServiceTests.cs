@@ -202,6 +202,7 @@ public class ApprovalServiceTests
     }
 
     [Theory]
+    [InlineData("50000.001", "50,000.001")]
     [InlineData("50000.01", "50,000.01")]
     [InlineData("75000.00", "75,000.00")]
     [InlineData("500000.00", "500,000.00")]

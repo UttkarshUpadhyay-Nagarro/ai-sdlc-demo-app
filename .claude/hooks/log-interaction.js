@@ -8,9 +8,22 @@ const path = require('path');
 
 const MAX_TEXT = 2000;
 
+// Secrets must never reach the log file, which is committed: mask passwords, bearer tokens
+// and token-like values before anything is written. Same rules in import-transcript.js.
+const SECRET_PATTERNS = [
+  [/(\\?"?password\\?"?\s*[:=]\s*\\?"?)[^"\\\s,}]+/gi, '$1***'],
+  [/(Bearer\s+)[A-Za-z0-9._~+/-]+=*/g, '$1***'],
+  [/((?:token|secret|api[_-]?key)\\?"?\s*[:=]\s*\\?"?)[A-Za-z0-9._~+/-]{8,}/gi, '$1***'],
+  [/ChangeMe123!/g, '***'],
+];
+
+function redact(text) {
+  return SECRET_PATTERNS.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);
+}
+
 function truncate(value) {
   if (value === undefined || value === null) return null;
-  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  const text = redact(typeof value === 'string' ? value : JSON.stringify(value));
   return text.length > MAX_TEXT ? `${text.slice(0, MAX_TEXT)}... [truncated ${text.length - MAX_TEXT} chars]` : text;
 }
 

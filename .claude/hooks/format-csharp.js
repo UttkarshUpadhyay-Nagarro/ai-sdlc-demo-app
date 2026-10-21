@@ -16,9 +16,14 @@ process.stdin.on('end', () => {
 
   const projectDir = process.env.CLAUDE_PROJECT_DIR || event.cwd || process.cwd();
   const solution = path.join(projectDir, 'backend', 'InvoiceApp.sln');
-  const result = spawnSync('dotnet', ['format', 'whitespace', solution, '--include', filePath], { encoding: 'utf8', shell: process.platform === 'win32' });
-  if (result.status !== 0) {
-    process.stderr.write(`dotnet format failed for ${filePath}: ${result.stderr || result.stdout}\n`);
+  // No shell: arguments are passed as-is, so spaces or metacharacters in paths are safe.
+  const executable = process.platform === 'win32' ? 'dotnet.exe' : 'dotnet';
+  const result = spawnSync(executable, ['format', 'whitespace', solution, '--include', filePath], { encoding: 'utf8' });
+  if (result.error || result.status !== 0) {
+    // Exit 1 shows the message to the user without blocking the agent.
+    const detail = result.error ? result.error.message : (result.stderr || result.stdout);
+    process.stderr.write(`dotnet format did not run for ${filePath}: ${detail}\n`);
+    process.exit(1);
   }
   process.exit(0);
 });

@@ -19,6 +19,11 @@ public class ApprovalService
         [DirectorRole] = 500_000.00m,
     };
 
+    // The in-memory repository hands out shared Invoice instances, so each read-decide-write
+    // sequence must run alone: two interleaved approvals could otherwise both pass the
+    // same-user check, or an approval and a rejection could both pass EnsurePending.
+    private static readonly object DecisionLock = new();
+
     private readonly IInvoiceRepository _repository;
 
     public ApprovalService(IInvoiceRepository repository)
@@ -27,6 +32,14 @@ public class ApprovalService
     }
 
     public Invoice Submit(string invoiceId)
+    {
+        lock (DecisionLock)
+        {
+            return SubmitLocked(invoiceId);
+        }
+    }
+
+    private Invoice SubmitLocked(string invoiceId)
     {
         var invoice = Find(invoiceId);
 
@@ -48,6 +61,14 @@ public class ApprovalService
     /// attempt (<see cref="ApprovalDeniedException"/>) changes nothing and saves nothing.
     /// </summary>
     public Invoice Approve(string invoiceId, string approverUsername, string approverRole)
+    {
+        lock (DecisionLock)
+        {
+            return ApproveLocked(invoiceId, approverUsername, approverRole);
+        }
+    }
+
+    private Invoice ApproveLocked(string invoiceId, string approverUsername, string approverRole)
     {
         var invoice = Find(invoiceId);
         EnsurePending(invoice);
@@ -77,6 +98,14 @@ public class ApprovalService
             throw new ArgumentException("A reason is required to reject an invoice.", nameof(reason));
         }
 
+        lock (DecisionLock)
+        {
+            return RejectLocked(invoiceId, approver, reason);
+        }
+    }
+
+    private Invoice RejectLocked(string invoiceId, string approver, string reason)
+    {
         var invoice = Find(invoiceId);
         EnsurePending(invoice);
 
@@ -136,7 +165,10 @@ public class ApprovalService
     private static bool IsSameUser(string firstUsername, string secondUsername) =>
         string.Equals(firstUsername?.Trim(), secondUsername?.Trim(), StringComparison.OrdinalIgnoreCase);
 
-    private static string FormatMoney(decimal amount) => amount.ToString("N2", CultureInfo.InvariantCulture);
+    // At least two decimals, more only when present: 50,000.00 but 50,000.001, so a reason never
+    // rounds an over-limit amount down to the limit it exceeds.
+    private static string FormatMoney(decimal amount) =>
+        amount.ToString("#,0.00###########", CultureInfo.InvariantCulture);
 
     private Invoice Find(string invoiceId) =>
         _repository.GetById(invoiceId)
