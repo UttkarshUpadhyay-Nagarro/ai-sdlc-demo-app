@@ -55,6 +55,25 @@ public class ApprovalServiceTests
         Assert.Equal(0, repository.UpdateCount);
     }
 
+    /// <summary>
+    /// Like <see cref="AssertRefused"/> for lifecycle and input errors that are not approval refusals
+    /// (wrong status, missing reason): the given exception type, the exact message, the invoice
+    /// unchanged in every field, and nothing saved.
+    /// </summary>
+    private static void AssertBlocked<TException>(Invoice invoice, Func<ApprovalService, Invoice> attempt, string expectedMessage)
+        where TException : Exception
+    {
+        var repository = new FakeInvoiceRepository(invoice);
+        var service = new ApprovalService(repository);
+        var before = StateOf(invoice);
+
+        var error = Assert.Throws<TException>(() => attempt(service));
+
+        Assert.Equal(expectedMessage, error.Message);
+        Assert.Equal(before, StateOf(invoice));
+        Assert.Equal(0, repository.UpdateCount);
+    }
+
     // ---- Lifecycle (existing behaviour) ----
 
     [Fact]
@@ -361,5 +380,134 @@ public class ApprovalServiceTests
             PendingInvoice("100.00"),
             service => service.Approve("INV-1", "someone", role),
             $"Role {role} cannot approve invoices.");
+    }
+
+    [Fact]
+    public void Approve_NullRole_IsRefusedAndInvoiceUnchanged()
+    {
+        // The role interpolates as empty, hence the two spaces.
+        AssertRefused(
+            PendingInvoice("100.00"),
+            service => service.Approve("INV-1", "someone", null!),
+            "Role  cannot approve invoices.");
+    }
+
+    // ---- Lifecycle guards: only drafts are submitted, only pending invoices are decided ----
+
+    [Theory]
+    [InlineData(InvoiceStatus.PendingApproval)]
+    [InlineData(InvoiceStatus.Approved)]
+    [InlineData(InvoiceStatus.Rejected)]
+    public void Submit_InvoiceThatIsNotADraft_ThrowsAndInvoiceUnchanged(InvoiceStatus status)
+    {
+        AssertBlocked<InvalidOperationException>(
+            InvoiceWith("INV-1", status),
+            service => service.Submit("INV-1"),
+            $"Invoice INV-1 is {status}; only drafts can be submitted.");
+    }
+
+    [Theory]
+    [InlineData(InvoiceStatus.Draft)]
+    [InlineData(InvoiceStatus.Approved)]
+    [InlineData(InvoiceStatus.Rejected)]
+    public void Approve_InvoiceThatIsNotPending_ThrowsAndInvoiceUnchanged(InvoiceStatus status)
+    {
+        AssertBlocked<InvalidOperationException>(
+            InvoiceWith("INV-1", status),
+            service => service.Approve("INV-1", Director, "Director"),
+            $"Invoice INV-1 is {status}; only pending invoices can be decided.");
+    }
+
+    [Theory]
+    [InlineData(InvoiceStatus.Draft)]
+    [InlineData(InvoiceStatus.Approved)]
+    [InlineData(InvoiceStatus.Rejected)]
+    public void Reject_InvoiceThatIsNotPending_ThrowsAndInvoiceUnchanged(InvoiceStatus status)
+    {
+        AssertBlocked<InvalidOperationException>(
+            InvoiceWith("INV-1", status),
+            service => service.Reject("INV-1", Admin, "Duplicate invoice"),
+            $"Invoice INV-1 is {status}; only pending invoices can be decided.");
+    }
+
+    [Fact]
+    public void Reject_AlreadyApprovedInvoice_KeepsTheOriginalDecision()
+    {
+        var invoice = InvoiceWith("INV-1", InvoiceStatus.Approved);
+        invoice.DecidedBy = Director;
+        invoice.DecidedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+
+        AssertBlocked<InvalidOperationException>(
+            invoice,
+            service => service.Reject("INV-1", Admin, "Changed my mind"),
+            "Invoice INV-1 is Approved; only pending invoices can be decided.");
+        Assert.Equal(Director, invoice.DecidedBy);
+        Assert.Null(invoice.DecisionNote);
+    }
+
+    [Fact]
+    public void Reject_SavesTheInvoiceOnce()
+    {
+        var repository = new FakeInvoiceRepository(InvoiceWith("INV-1", InvoiceStatus.PendingApproval));
+
+        new ApprovalService(repository).Reject("INV-1", Admin, "Duplicate invoice");
+
+        Assert.Equal(1, repository.UpdateCount);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("\t")]
+    public void Reject_WithoutReason_ThrowsAndInvoiceUnchanged(string? reason)
+    {
+        var invoice = InvoiceWith("INV-1", InvoiceStatus.PendingApproval);
+        var repository = new FakeInvoiceRepository(invoice);
+        var before = StateOf(invoice);
+
+        var error = Assert.Throws<ArgumentException>(
+            () => new ApprovalService(repository).Reject("INV-1", Manager, reason!));
+
+        Assert.Equal("reason", error.ParamName);
+        Assert.StartsWith("A reason is required to reject an invoice.", error.Message);
+        Assert.Equal(before, StateOf(invoice));
+        Assert.Equal(0, repository.UpdateCount);
+    }
+
+    // ---- Missing invoices ----
+
+    [Fact]
+    public void Submit_MissingInvoice_ThrowsNotFoundWithId()
+    {
+        var error = Assert.Throws<KeyNotFoundException>(() => ServiceFor().Submit("INV-404"));
+
+        Assert.Equal("Invoice INV-404 was not found.", error.Message);
+    }
+
+    [Fact]
+    public void Approve_MissingInvoice_ThrowsNotFoundWithId()
+    {
+        var error = Assert.Throws<KeyNotFoundException>(() => ServiceFor().Approve("INV-404", Director, "Director"));
+
+        Assert.Equal("Invoice INV-404 was not found.", error.Message);
+    }
+
+    [Fact]
+    public void Reject_MissingInvoice_ThrowsNotFoundWithId()
+    {
+        var error = Assert.Throws<KeyNotFoundException>(() => ServiceFor().Reject("INV-404", Admin, "Duplicate invoice"));
+
+        Assert.Equal("Invoice INV-404 was not found.", error.Message);
+    }
+
+    [Fact]
+    public void Approve_MissingInvoice_SavesNothing()
+    {
+        var repository = new FakeInvoiceRepository(InvoiceWith("INV-1", InvoiceStatus.PendingApproval));
+
+        Assert.Throws<KeyNotFoundException>(() => new ApprovalService(repository).Approve("INV-404", Director, "Director"));
+
+        Assert.Equal(0, repository.UpdateCount);
     }
 }

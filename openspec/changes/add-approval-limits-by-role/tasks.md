@@ -24,8 +24,8 @@ Each numbered group is one commit (`<type>(<scope>): <summary>` + `What:`/`Why:`
 
 ## 4. Mutation testing
 
-- [ ] 4.1 Run `dotnet stryker` in `backend/tests/InvoiceApp.Tests` on the code before task 1 (baseline already in `docs/mutation/baseline.txt` if current) and after task 3; record scores and surviving mutants in `docs/mutation/`
-- [ ] 4.2 Add or tighten tests for every surviving mutant in `ApprovalService` approval rules (boundary operators, comparison, check order, mutate-before-validate) or document why it is equivalent; verify by re-running Stryker that no rule-related mutant survives
+- [x] 4.1 Run `dotnet stryker` in `backend/tests/InvoiceApp.Tests` on the code before task 1 (baseline already in `docs/mutation/baseline.txt` if current) and after task 3; record scores and surviving mutants in `docs/mutation/`
+- [x] 4.2 Add or tighten tests for every surviving mutant in `ApprovalService` approval rules (boundary operators, comparison, check order, mutate-before-validate) or document why it is equivalent; verify by re-running Stryker that no rule-related mutant survives
 
 ## 5. Review and write-up
 
