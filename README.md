@@ -10,10 +10,12 @@ dotnet run --project backend/src/InvoiceApp.Api
 
 Open http://localhost:5000 and sign in:
 
-| User | Password | Role |
-| --- | --- | --- |
-| `demo.approver` | `ChangeMe123!` | Approver |
-| `demo.admin` | `ChangeMe123!` | Admin |
+| User | Password | Role | May approve |
+| --- | --- | --- | --- |
+| `demo.manager` | `ChangeMe123!` | Manager | up to 50,000 |
+| `demo.director` | `ChangeMe123!` | Director | up to 500,000; second approval above that |
+| `demo.director2` | `ChangeMe123!` | Director | up to 500,000; second approval above that |
+| `demo.admin` | `ChangeMe123!` | Admin | cannot approve (can reject and delete) |
 
 These are demo accounts for a local, in-memory app. They are not real credentials.
 
@@ -21,7 +23,7 @@ These are demo accounts for a local, in-memory app. They are not real credential
 
 1. Create an invoice (it starts as a draft).
 2. Submit it for approval.
-3. An approver approves it, or rejects it with a reason.
+3. A Manager or Director approves it within their limit (two distinct approvers above 500,000, the second a Director), or anyone with an approval role rejects it with a reason.
 
 Invoices move through Draft, Pending Approval, then Approved or Rejected.
 
