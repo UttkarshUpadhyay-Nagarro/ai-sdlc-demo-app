@@ -23,7 +23,7 @@ wwwroot (UI) --HTTP--> Controllers --calls--> ApprovalService --uses--> IInvoice
 
 ## Approval rules (business rules, owned by Domain)
 
-Spec: `openspec/specs/invoice-approval/spec.md` (while the change is open: `openspec/changes/add-approval-limits-by-role/specs/invoice-approval/spec.md`). Summary:
+Spec: `openspec/specs/invoice-approval/spec.md` (history: `openspec/changes/archive/2026-10-21-add-approval-limits-by-role/`). Summary:
 
 | Rule | Behaviour |
 | --- | --- |

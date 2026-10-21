@@ -14,11 +14,23 @@ const SECRET_PATTERNS = [
   [/(\\?"?password\\?"?\s*[:=]\s*\\?"?)[^"\\\s,}]+/gi, '$1***'],
   [/(Bearer\s+)[A-Za-z0-9._~+/-]+=*/g, '$1***'],
   [/((?:token|secret|api[_-]?key)\\?"?\s*[:=]\s*\\?"?)[A-Za-z0-9._~+/-]{8,}/gi, '$1***'],
-  [/ChangeMe123!/g, '***'],
+  [/ChangeMe123!?/g, '***'],
+  [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '<email>'],
 ];
 
+// The committer's own address and its local part (handle) are masked too.
+const OWN_EMAIL_PARTS = (() => {
+  try {
+    const email = require('child_process').execSync('git config user.email', { encoding: 'utf8' }).trim();
+    return email ? [email, email.split('@')[0]].filter((part) => part.length >= 4) : [];
+  } catch {
+    return [];
+  }
+})();
+
 function redact(text) {
-  return SECRET_PATTERNS.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);
+  const masked = SECRET_PATTERNS.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);
+  return OWN_EMAIL_PARTS.reduce((result, part) => result.split(part).join('<user>'), masked);
 }
 
 function truncate(value) {

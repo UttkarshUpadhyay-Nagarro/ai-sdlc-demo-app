@@ -29,8 +29,8 @@ Each numbered group is one commit (`<type>(<scope>): <summary>` + `What:`/`Why:`
 
 ## 5. Review and write-up
 
-- [ ] 5.1 Review the full diff with the code-reviewer agent using the AGENTS.md finding format and check order; give every finding a verdict (Fixed with commit / Dismissed with reason / Deferred with reason) in the PR description; verify every blocker/major is Fixed
-- [ ] 5.2 Write `ASSIGNMENT.md` describing the spec -> implementation -> tests -> mutation -> review flow, the AI tools/agents used, and what was corrected by hand; verify `openspec validate add-approval-limits-by-role --strict` and `dotnet test backend/InvoiceApp.sln` pass
+- [x] 5.1 Review the full diff with the code-reviewer agent using the AGENTS.md finding format and check order; give every finding a verdict (Fixed with commit / Dismissed with reason / Deferred with reason) in the PR description; verify every blocker/major is Fixed
+- [x] 5.2 Write `ASSIGNMENT.md` describing the spec -> implementation -> tests -> mutation -> review flow, the AI tools/agents used, and what was corrected by hand; verify `openspec validate add-approval-limits-by-role --strict` and `dotnet test backend/InvoiceApp.sln` pass
 
 ## Workflow follow-up
 

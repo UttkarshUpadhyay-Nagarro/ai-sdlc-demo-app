@@ -9,7 +9,8 @@ Score = (killed + timeout) / (killed + timeout + survived + no coverage).
 | --- | --- | --- | --- | --- |
 | Before (baseline) | 66cb3f9 (upstream) | 7 | 60.00% (12 killed, 8 survived) | 30.77% |
 | After feature | 8d634dc (steps 1-2 + e2e) | 42 | 87.76% (43 killed, 5 survived, 1 no coverage) | 63.24% |
-| After hardening | this commit | 62 | 97.96% (48 killed, 1 survived) | 70.59% |
+| After hardening | fe39c9a | 62 | 97.96% (48 killed, 1 survived) | 70.59% |
+| Final (after review fixes) | 595eda3 | 63 | **98.08%** (51 killed, 1 survived) | **71.83%** |
 
 ## Before (baseline)
 
@@ -53,6 +54,17 @@ ApprovalService.cs       | 48     | 1        | 0          | 97.96%
 DiscountCalculator.cs    | 0      | 0        | 17         | 0.00%
 Invoice.cs               | 0      | 2        | 0          | 0.00%
 TOTAL                    | 48     | 3        | 17         | 70.59%
+```
+
+## Final (after review fixes F1, F2)
+
+```
+File                     | Killed | Survived | NoCoverage | Score
+-------------------------|--------|----------|------------|-------
+ApprovalService.cs       | 51     | 1        | 0          | 98.08%
+DiscountCalculator.cs    | 0      | 0        | 17         | 0.00%
+Invoice.cs               | 0      | 2        | 0          | 0.00%
+TOTAL                    | 51     | 3        | 17         | 71.83%
 ```
 
 Remaining survivors, judged:
