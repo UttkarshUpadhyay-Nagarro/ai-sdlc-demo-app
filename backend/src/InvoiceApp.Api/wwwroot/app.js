@@ -72,8 +72,14 @@
       approve.addEventListener('click', () => decide(`/approvals/${invoice.id}/approve`, {}));
       reject.addEventListener('click', () => decide(`/approvals/${invoice.id}/reject`, { reason: reason.value }));
 
+      // Display only: the approval rules themselves live in the Domain project.
+      const awaiting = invoice.firstApprovedBy
+        ? el('span', { class: 'awaiting-second' }, `Awaiting second approval (first: ${invoice.firstApprovedBy})`)
+        : '';
+
       return el('li', {},
         el('span', {}, `${invoice.id} · ${invoice.customerName} · ${money.format(invoice.amount)}`),
+        awaiting,
         el('span', {}, approve),
         el('div', { class: 'reject-row' }, reason, reject));
     }));

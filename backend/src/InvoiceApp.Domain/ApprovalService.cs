@@ -5,11 +5,13 @@ namespace InvoiceApp.Domain;
 /// <summary>
 /// Moves an invoice through its lifecycle: Draft -> PendingApproval -> Approved or Rejected.
 /// Approval is limited by role: Manager up to 50,000.00, Director up to 500,000.00 (inclusive).
+/// Above 500,000.00 two distinct users must approve, and the second must be a Director.
 /// </summary>
 public class ApprovalService
 {
     public const string ManagerRole = "Manager";
     public const string DirectorRole = "Director";
+    public const decimal TwoApproverThreshold = 500_000.00m;
 
     private static readonly IReadOnlyDictionary<string, decimal> ApprovalLimits = new Dictionary<string, decimal>
     {
@@ -40,18 +42,30 @@ public class ApprovalService
     }
 
     /// <summary>
-    /// Approves a pending invoice if the approver's role allows it. Every check runs before the
-    /// invoice is touched, so a refused attempt (<see cref="ApprovalDeniedException"/>) changes nothing.
+    /// Approves a pending invoice if the approver's role allows it. Above 500,000.00 the first
+    /// approval is recorded and the invoice stays pending until a different Director approves.
+    /// Every check runs in <see cref="Decide"/> before the invoice is touched, so a refused
+    /// attempt (<see cref="ApprovalDeniedException"/>) changes nothing and saves nothing.
     /// </summary>
     public Invoice Approve(string invoiceId, string approverUsername, string approverRole)
     {
         var invoice = Find(invoiceId);
         EnsurePending(invoice);
-        EnsureWithinApprovalLimit(invoice, approverRole);
+        var outcome = Decide(invoice, approverUsername, approverRole);
 
-        invoice.Status = InvoiceStatus.Approved;
-        invoice.DecidedBy = approverUsername;
-        invoice.DecidedAt = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
+        if (outcome == ApprovalOutcome.FirstOfTwo)
+        {
+            invoice.FirstApprovedBy = approverUsername;
+            invoice.FirstApprovedAt = now;
+        }
+        else
+        {
+            invoice.Status = InvoiceStatus.Approved;
+            invoice.DecidedBy = approverUsername;
+            invoice.DecidedAt = now;
+        }
+
         _repository.Update(invoice);
         return invoice;
     }
@@ -74,19 +88,53 @@ public class ApprovalService
         return invoice;
     }
 
-    private static void EnsureWithinApprovalLimit(Invoice invoice, string approverRole)
+    private enum ApprovalOutcome
+    {
+        Final,
+        FirstOfTwo
+    }
+
+    /// <summary>Applies the approval rules without changing the invoice. Throws on refusal.</summary>
+    private static ApprovalOutcome Decide(Invoice invoice, string approverUsername, string approverRole)
     {
         if (!ApprovalLimits.TryGetValue(approverRole ?? string.Empty, out var limit))
         {
             throw new ApprovalDeniedException($"Role {approverRole} cannot approve invoices.");
         }
 
-        if (invoice.Amount > limit)
+        if (invoice.Amount <= TwoApproverThreshold)
+        {
+            if (invoice.Amount > limit)
+            {
+                throw new ApprovalDeniedException(
+                    $"{approverRole} approval limit is {FormatMoney(limit)}; invoice {invoice.Id} is {FormatMoney(invoice.Amount)}.");
+            }
+
+            return ApprovalOutcome.Final;
+        }
+
+        if (string.IsNullOrWhiteSpace(invoice.FirstApprovedBy))
+        {
+            return ApprovalOutcome.FirstOfTwo;
+        }
+
+        if (IsSameUser(invoice.FirstApprovedBy, approverUsername))
         {
             throw new ApprovalDeniedException(
-                $"{approverRole} approval limit is {FormatMoney(limit)}; invoice {invoice.Id} is {FormatMoney(invoice.Amount)}.");
+                $"{invoice.FirstApprovedBy} already gave the first approval for invoice {invoice.Id}; a different approver is required.");
         }
+
+        if (approverRole != DirectorRole)
+        {
+            throw new ApprovalDeniedException(
+                $"Invoice {invoice.Id} is over {FormatMoney(TwoApproverThreshold)}; the second approver must be a Director.");
+        }
+
+        return ApprovalOutcome.Final;
     }
+
+    private static bool IsSameUser(string firstUsername, string secondUsername) =>
+        string.Equals(firstUsername?.Trim(), secondUsername?.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private static string FormatMoney(decimal amount) => amount.ToString("N2", CultureInfo.InvariantCulture);
 

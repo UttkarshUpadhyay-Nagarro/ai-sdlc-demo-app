@@ -211,15 +211,141 @@ public class ApprovalServiceTests
         Assert.NotNull(result.DecidedAt);
     }
 
-    // Interim, fail-closed behaviour of task 1: nobody can approve above 500,000.00 alone.
-    // Replaced by the two-approver rule in task 2.
+    // ---- R3: above 500,000.00 two distinct approvers, the second a Director ----
+
+    private const string SecondDirector = "demo.director2";
+
+    private static Invoice PendingWithFirstApproval(string amount, string firstApprover)
+    {
+        var invoice = PendingInvoice(amount);
+        invoice.FirstApprovedBy = firstApprover;
+        invoice.FirstApprovedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+        return invoice;
+    }
+
+    [Theory]
+    [InlineData(Director, "Director", "500000.01")]
+    [InlineData(Director, "Director", "900000.00")]
+    [InlineData(Manager, "Manager", "500000.01")]
+    [InlineData(Manager, "Manager", "600000.00")]
+    public void Approve_FirstApprovalAboveThreshold_RecordsFirstApproverAndStaysPending(string username, string role, string amount)
+    {
+        var repository = new FakeInvoiceRepository(PendingInvoice(amount));
+
+        var result = new ApprovalService(repository).Approve("INV-1", username, role);
+
+        Assert.Equal(InvoiceStatus.PendingApproval, result.Status);
+        Assert.Equal(username, result.FirstApprovedBy);
+        Assert.NotNull(result.FirstApprovedAt);
+        Assert.Null(result.DecidedBy);
+        Assert.Null(result.DecidedAt);
+        Assert.Null(result.DecisionNote);
+        Assert.Equal(1, repository.UpdateCount);
+    }
+
+    [Theory]
+    [InlineData(Manager, "600000.00")]
+    [InlineData(Director, "500000.01")]
+    public void Approve_DifferentDirectorAfterFirstApproval_ApprovesAndKeepsFirstApproval(string firstApprover, string amount)
+    {
+        var invoice = PendingWithFirstApproval(amount, firstApprover);
+        var firstApprovedAt = invoice.FirstApprovedAt;
+        var repository = new FakeInvoiceRepository(invoice);
+
+        var result = new ApprovalService(repository).Approve("INV-1", SecondDirector, "Director");
+
+        Assert.Equal(InvoiceStatus.Approved, result.Status);
+        Assert.Equal(SecondDirector, result.DecidedBy);
+        Assert.NotNull(result.DecidedAt);
+        Assert.Equal(firstApprover, result.FirstApprovedBy);
+        Assert.Equal(firstApprovedAt, result.FirstApprovedAt);
+        Assert.Equal(1, repository.UpdateCount);
+    }
+
     [Fact]
-    public void Approve_DirectorAboveLimit_IsRefusedUntilTwoApproverRuleExists()
+    public void Approve_TwoApproversEndToEnd_ManagerThenDirectorApproves()
+    {
+        var repository = new FakeInvoiceRepository(PendingInvoice("750000.00"));
+        var service = new ApprovalService(repository);
+
+        var afterFirst = service.Approve("INV-1", Manager, "Manager");
+        Assert.Equal(InvoiceStatus.PendingApproval, afterFirst.Status);
+
+        var afterSecond = service.Approve("INV-1", Director, "Director");
+        Assert.Equal(InvoiceStatus.Approved, afterSecond.Status);
+        Assert.Equal(Manager, afterSecond.FirstApprovedBy);
+        Assert.Equal(Director, afterSecond.DecidedBy);
+        Assert.Equal(2, repository.UpdateCount);
+    }
+
+    [Theory]
+    [InlineData(Director)]
+    [InlineData(SecondDirector)]
+    public void Approve_ManagerAsSecondApprover_IsRefusedAndInvoiceUnchanged(string firstApprover)
     {
         AssertRefused(
-            PendingInvoice("500000.01"),
-            service => service.Approve("INV-1", Director, "Director"),
-            "Director approval limit is 500,000.00; invoice INV-1 is 500,000.01.");
+            PendingWithFirstApproval("600000.00", firstApprover),
+            service => service.Approve("INV-1", Manager, "Manager"),
+            "Invoice INV-1 is over 500,000.00; the second approver must be a Director.");
+    }
+
+    [Fact]
+    public void Approve_AdminAsSecondApprover_IsRefusedAndInvoiceUnchanged()
+    {
+        AssertRefused(
+            PendingWithFirstApproval("600000.00", Manager),
+            service => service.Approve("INV-1", Admin, "Admin"),
+            "Role Admin cannot approve invoices.");
+    }
+
+    [Fact]
+    public void Approve_AdminAsFirstApproverAboveThreshold_IsRefusedAndInvoiceUnchanged()
+    {
+        AssertRefused(
+            PendingInvoice("600000.00"),
+            service => service.Approve("INV-1", Admin, "Admin"),
+            "Role Admin cannot approve invoices.");
+    }
+
+    // ---- R4: the same user never counts as both approvers ----
+
+    [Theory]
+    [InlineData(Director, Director, "Director")]
+    [InlineData(Manager, Manager, "Manager")]
+    [InlineData(Director, " Demo.Director ", "Director")]
+    [InlineData(Director, "DEMO.DIRECTOR", "Director")]
+    [InlineData(" demo.director", "demo.director\t", "Director")]
+    public void Approve_SameUserAsFirstApprover_IsRefusedAndInvoiceUnchanged(string firstApprover, string secondApprover, string role)
+    {
+        AssertRefused(
+            PendingWithFirstApproval("600000.00", firstApprover),
+            service => service.Approve("INV-1", secondApprover, role),
+            $"{firstApprover} already gave the first approval for invoice INV-1; a different approver is required.");
+    }
+
+    [Fact]
+    public void Approve_SameUserCheckRunsBeforeDirectorCheck()
+    {
+        // A Manager repeating their own first approval gets the more specific same-user reason.
+        AssertRefused(
+            PendingWithFirstApproval("600000.00", Manager),
+            service => service.Approve("INV-1", "Demo.Manager", "Manager"),
+            "demo.manager already gave the first approval for invoice INV-1; a different approver is required.");
+    }
+
+    [Fact]
+    public void Reject_AfterFirstApproval_KeepsFirstApprovalHistory()
+    {
+        var invoice = PendingWithFirstApproval("600000.00", Manager);
+        var firstApprovedAt = invoice.FirstApprovedAt;
+
+        var result = ServiceFor(invoice).Reject("INV-1", Director, "Contract not signed");
+
+        Assert.Equal(InvoiceStatus.Rejected, result.Status);
+        Assert.Equal(Director, result.DecidedBy);
+        Assert.Equal("Contract not signed", result.DecisionNote);
+        Assert.Equal(Manager, result.FirstApprovedBy);
+        Assert.Equal(firstApprovedAt, result.FirstApprovedAt);
     }
 
     // ---- Roles without an approval limit ----
