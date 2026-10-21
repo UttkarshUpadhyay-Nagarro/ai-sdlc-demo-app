@@ -19,8 +19,8 @@ Each numbered group is one commit (`<type>(<scope>): <summary>` + `What:`/`Why:`
 
 ## 3. End-to-end test: Manager over-limit refusal in the UI
 
-- [ ] 3.1 Add page objects under `e2e/pages/` (`LoginPage`, `InvoicesPage`, `ApprovalsPage`) using only `getByRole`/`getByLabel`; verify no CSS or XPath selectors are used
-- [ ] 3.2 Add `e2e/tests/approval-limits.spec.ts`: sign in as `demo.manager`, create and submit a 75,000.00 invoice, approve it on the Approvals tab, assert the alert shows `Manager approval limit is 50,000.00; invoice <id> is 75,000.00.` and the invoice is still in the pending list and shows Pending Approval on the Invoices tab; verify with `cd e2e && npm test` (passes, and fails if the limit check is removed)
+- [x] 3.1 Add page objects under `e2e/pages/` (`LoginPage`, `InvoicesPage`, `ApprovalsPage`) using only `getByRole`/`getByLabel`; verify no CSS or XPath selectors are used
+- [x] 3.2 Add `e2e/tests/approval-limits.spec.ts`: sign in as `demo.manager`, create and submit a 75,000.00 invoice, approve it on the Approvals tab, assert the alert shows `Manager approval limit is 50,000.00; invoice <id> is 75,000.00.` and the invoice is still in the pending list and shows Pending Approval on the Invoices tab; verify with `cd e2e && npm test` (passes, and fails if the limit check is removed)
 
 ## 4. Mutation testing
 
