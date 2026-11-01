@@ -1,0 +1,12 @@
+#!/bin/sh
+# Same rule as .claude/hooks/check-commit-message.js, enforced for humans and agents alike.
+# Enable once per clone: git config core.hooksPath .githooks
+message_file="$1"
+subject=$(head -n 1 "$message_file")
+if ! printf '%s' "$subject" | grep -Eq '^(feat|fix|test|docs|spec|chore|refactor|ci)(\([a-z0-9-]+\))?: .{5,72}$'; then
+  echo "commit-msg: subject must be '<type>(<scope>): <summary>' (max 72 chars). Got: $subject" >&2
+  exit 1
+fi
+grep -q '^What:' "$message_file" || { echo "commit-msg: add a 'What:' paragraph." >&2; exit 1; }
+grep -q '^Why:' "$message_file" || { echo "commit-msg: add a 'Why:' paragraph." >&2; exit 1; }
+exit 0

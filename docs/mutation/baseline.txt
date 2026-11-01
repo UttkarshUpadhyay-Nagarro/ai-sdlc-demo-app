@@ -1,0 +1,8 @@
+Baseline mutation score, measured on upstream commit 66cb3f9 (before any change), Stryker.NET 4.13.0, 7 tests.
+
+File                     | Killed | Survived | NoCoverage | Score
+-------------------------|--------|----------|------------|-------
+ApprovalService.cs       | 12     | 8        | 0          | 60.00%
+DiscountCalculator.cs    | 0      | 0        | 17         | 0.00%
+Invoice.cs               | 0      | 2        | 0          | 0.00%
+TOTAL                    | 12     | 10       | 17         | 30.77%

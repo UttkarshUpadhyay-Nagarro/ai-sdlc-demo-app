@@ -28,3 +28,8 @@ th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line);
 .reject-row { grid-column:1 / -1; display:flex; gap:8px; }
 .reject-row input { flex:1; }
 [role="alert"] { color:var(--warn); margin:4px 0 0; }
+
+.awaiting-second {
+  font-size: 0.9em;
+  color: #8a5a00;
+}

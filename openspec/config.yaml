@@ -1,0 +1,18 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+context: |
+  Invoice approval demo app: ASP.NET Core 8 API (backend/src/InvoiceApp.Api), Domain library
+  (backend/src/InvoiceApp.Domain), xUnit tests (backend/tests/InvoiceApp.Tests), Playwright e2e (e2e/).
+  Business rules live only in Domain; AGENTS.md is the agent contract and must stay consistent with specs.
+  Money is decimal; approval limits are inclusive. Refused actions must leave the invoice unchanged.
+  Demo users come from appsettings.json and are not real credentials.
+
+rules:
+  specs:
+    - Every limit has scenarios at, just below and just above the boundary
+    - Every refusal scenario states the invoice is unchanged and gives the exact reason text
+  tasks:
+    - Each task is one commit and includes its own tests
+    - Single-approver limits and the two-approver rule are separate tasks, implemented in that order
