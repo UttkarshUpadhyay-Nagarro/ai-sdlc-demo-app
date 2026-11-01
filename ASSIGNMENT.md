@@ -2,8 +2,8 @@
 
 **Author:** Uttkarsh Upadhyay (3185560)
 **Feature:** approval limits by role on the invoice approval service
-**Branch / PR:** `feature/approval-limits-by-role` -> `main` on my fork of `NITIN1670/ai-sdlc-demo-app`
-**Demo video (8-10 min):** `<VIDEO LINK: paste the uploaded MP4 / Teams recording link here>`
+**Branch / PR:** `feature/approval-limits-by-role` -> `main` on my fork of `NITIN1670/ai-sdlc-demo-app`: https://github.com/UttkarshUpadhyay-Nagarro/ai-sdlc-demo-app/pull/1
+**Demo video (8-10 min):** https://drive.google.com/drive/folders/1rwOgXVZTIkIa5Tl_C34EZnVofk0me6GN?usp=sharing
 
 ## 1. What was built
 
